@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --account=sscc          # The account name for the job.
-#SBATCH --job-name=DTMHfull     # The job name.
+#SBATCH --job-name=DTMHshort    # The job name.
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH -c 1                    # The number of cpu cores to use.
@@ -21,4 +21,4 @@ export JULIA_PKGDIR=/rigel/sscc/users/jma2241/.julia/
 cd /rigel/home/jma2241/coursework/uribe/DTreplication/julia/
 # Arguments: See do file
 
-julia estimation.jl 
+julia estimation.jl short

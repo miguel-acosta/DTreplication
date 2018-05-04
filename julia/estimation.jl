@@ -138,8 +138,10 @@ end
 ## Import data
 if length(ARGS) == 0
     startDat = 1
+    outdirMCMC = string(outdirMCMC, "posterior_full/")
 elseif ARGS[1] == "short"
     startDat = 49
+    outdirMCMC = string(outdirMCMC, "posterior_short/")
 end
 dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)
 datVAR  = dat[:,2:5]
@@ -231,7 +233,7 @@ VarR  = 0.2*H;     ## Variance of the random walk.
 N     = 1_000_000;     ## number of iterations 
 Nsave = 10_000;
 θ0    = rand(MvNormal(Theta, VarR),1)
-asdfasdf
+
 while logposterior(θ0) == -Inf
     θ0   = rand(MvNormal(Theta, VarR),1)
 end
@@ -240,7 +242,6 @@ POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
 naccept = 0
 
 for t = 1:N
-    println(string(t))
     θ1    = θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1)
     post1 = logposterior(θ1)
     if post1 == -Inf
