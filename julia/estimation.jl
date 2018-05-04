@@ -1,6 +1,6 @@
 using Distributions
 using Optim
-using IterableTables, DataFrames, ExcelReaders, PyPlot, Parameters, ForwardDiff, CSV
+using IterableTables, DataFrames, ExcelReaders, PyPlot, Parameters, CSV
 include("kalmanLikelihood.jl")
 include("BBmodel.jl")
 include("BBsteadystate.jl")
@@ -126,11 +126,29 @@ function logprior(PARAMS)
     return(logP)
 end
 
-## Import data
-dat     = readxlsheet(DataFrame, "../VAR/DataVAR.xlsx", "Sheet1", header=true)
-datVAR  = convert(Array,dat[:,2:5])
-DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
+##----------------------------------------------------------------------------##
+## Setup: set directories and import data 
+##----------------------------------------------------------------------------##
+if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
+    outdirMCMC = "/rigel/sscc/users/jma2241/DT/"
+else
+    outdirMCMC = "../posterior/"
+end
 
+## Import data
+if length(ARGS) == 0
+    startDat = 1
+elseif ARGS[1] == "short"
+    startDat = 49
+end
+dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)
+datVAR  = dat[:,2:5]
+DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
+DATA    = DATA[:,startDat:end] # short sample
+
+##----------------------------------------------------------------------------##
+## Calibrate parameters and establish order of parameters in vector
+##----------------------------------------------------------------------------##
 
 ## Order of variables in vector of estimated parameters
 order = Dict(1 => "ξ",    2 => "Ψ",
@@ -155,7 +173,9 @@ calibrated = Dict("p_til"   => 0.5244,
                   "ω_til"   => 1.6)
 
 
-## Figure out starting place
+##----------------------------------------------------------------------------##
+## Use minimizer to find (or, hopefully, get closer to) posterior mode.
+##----------------------------------------------------------------------------##
 
 # Derive the posterior mode and save for future uses.
 function logposterior(p)
@@ -168,12 +188,6 @@ function logposterior(p)
 end
 
 neglogposterior(p) = -logposterior(p)
-#logposterior(p)     = logprior(paramVec(calibrated,p,order)) + kalmanLikelihood(paramVec(calibrated,p,order),DATA)
-#neglogprior(p)      = -logprior(paramVec(calibrated,p,order))
-#negloglikelihood(p) = -kalmanLikelihood(paramVec(calibrated,p,order),DATA)
-#neglogposterior(p)  = -logposterior(p)
-
-
 
 # Prior Mean of Theta
 θ0 = Dict("ξ"        => -0.199,       
@@ -206,27 +220,25 @@ if findMode == true
     H = inv(hessianFD(neglogposterior,Theta))
     CSV.write("H.csv", DataFrame(H))
 else
-    Theta  = vec(get.(convert(Array, CSV.read("mode.csv"))))
-    H      = Symmetric(get.(convert(Array, CSV.read("H.csv"))))
+    Theta  = vec(convert(Array, CSV.read("mode.csv",allowmissing=:none)))
+    H      = Symmetric(convert(Array, CSV.read("H.csv",allowmissing=:none)))
 end
  
-
-
-VarR = 0.2*H;         ## Variance of the random walk. 
-N     = 5000;             ## number of iterations before 3e5
-Nsave = 100;
-θ0   = rand(MvNormal(Theta, VarR),1)
-println(θ0)
-
+##----------------------------------------------------------------------------##
+## MCMC!
+##----------------------------------------------------------------------------##
+VarR  = 0.2*H;     ## Variance of the random walk. 
+N     = 1_000_000;     ## number of iterations 
+Nsave = 10_000;
+θ0    = rand(MvNormal(Theta, VarR),1)
+asdfasdf
 while logposterior(θ0) == -Inf
-    println("here")
     θ0   = rand(MvNormal(Theta, VarR),1)
 end
 
-pringln("here")
-
 POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
 naccept = 0
+
 for t = 1:N
     println(string(t))
     θ1    = θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1)
@@ -247,7 +259,7 @@ for t = 1:N
 #    println(naccept/t)
     POST[:,t] = copy(θ0)
     if t % Nsave == 0
-        CSV.write(string("posterior/post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
+        CSV.write(string(outdirMCMC, "post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
     end
         
 end

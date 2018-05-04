@@ -126,11 +126,11 @@ function logprior(PARAMS)
     return(logP)
 end
 
-## Import data
-dat     = readxlsheet(DataFrame, "../VAR/DataVAR.xlsx", "Sheet1", header=true)
-datVAR  = convert(Array,dat[:,2:5])
+startDat = 3;
+dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)
+datVAR  = dat[:,2:5]
 DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
-DATA    = DATA[49:end,:] # short sample
+DATA    = DATA[:,startDat:end] # short sample
 
 ## Order of variables in vector of estimated parameters
 order = Dict(1 => "ξ",    2 => "Ψ",
@@ -168,10 +168,6 @@ function logposterior(p)
 end
 
 neglogposterior(p) = -logposterior(p)
-#logposterior(p)     = logprior(paramVec(calibrated,p,order)) + kalmanLikelihood(paramVec(calibrated,p,order),DATA)
-#neglogprior(p)      = -logprior(paramVec(calibrated,p,order))
-#negloglikelihood(p) = -kalmanLikelihood(paramVec(calibrated,p,order),DATA)
-#neglogposterior(p)  = -logposterior(p)
 
 
 
@@ -206,22 +202,22 @@ if findMode == true
     H = inv(hessianFD(neglogposterior,Theta))
     CSV.write("H.csv", DataFrame(H))
 else
-    Theta  = vec(get.(convert(Array, CSV.read("mode.csv"))))
-    H      = Symmetric(get.(convert(Array, CSV.read("H.csv"))))
+    Theta  = vec(convert(Array, CSV.read("mode.csv",allowmissing=:none)))
+    H      = Symmetric(convert(Array, CSV.read("H.csv",allowmissing=:none)))
 end
  
 
 
 VarR = 0.2*H;         ## Variance of the random walk. 
-N     = 5000;             ## number of iterations before 3e5
+N     = 100;             ## number of iterations before 3e5
 Nsave = 100;
 θ0   = rand(MvNormal(Theta, VarR),1)
 
 ss = BBsteadystate(paramVec(calibrated,θ0,order))
-println(ss)
+#println(ss)
 G1, C0, G0, fmat, fwt, ywt, gev, eu, ind, NY, NEPS, M1 = BBmodel(ss)
 
-print(eu)
+#print(eu)
 
 
 while logposterior(θ0) == -Inf
@@ -231,7 +227,6 @@ end
 POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
 naccept = 0
 for t = 1:N
-    println(string(t))
     θ1    = θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1)
     post1 = logposterior(θ1)
     if post1 == -Inf
