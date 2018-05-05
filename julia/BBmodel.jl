@@ -1,5 +1,5 @@
 using Gensys
-function BBmodel(PAR)    
+function BBmodel(PAR::Dict{String,Float64})    
     @unpack p_til, dstar, s, ξ, g, Ψ, αk, αm, αk_til,
     δ, ϕ,b, Γ, θ, ω, ω_til,
     ρ_a, ρ_a_til, ρ_g, ρ_s, ρ_ν, ρ_μ,
@@ -138,7 +138,7 @@ g1[7,ind["D"]]         = d;
 
 # Eq8 Interest rate process
 g0[8,ind["R"]]         = 1;
-g0[8,ind["D"]]         = -Ψ*d; 
+g0[8,ind["D"]]         = -Ψ*ygdp; ## We fixed this from d to ygdp because debt can't be log linearized
 g0[8,ind["P_til"]]     = -ξ;
 g0[8,ind["μ"]]         = -1;
 

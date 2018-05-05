@@ -1,6 +1,6 @@
 using NLsolve
 using Parameters
-function BBsteadystate(PAR)
+function BBsteadystate(PAR::Dict{String,Float64})
 
     @unpack p_til, dstar, s, ξ, g, Ψ, αk, αm, αk_til,
             δ, ϕ,b, Γ, θ, ω, ω_til = PAR

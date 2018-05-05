@@ -9,13 +9,13 @@ include("BBsteadystate.jl")
 ##----------------------------------------------------------------------------##
 
 ## Function for stability of AR(2) coefficients:
-function stableAR2(ϕ1, ϕ2)
+function stableAR2(ϕ1::Float64, ϕ2::Float64)
     return( (ϕ2<1+ϕ1) & (ϕ2<1-ϕ1) & (ϕ2>-1) )
 end
 
 ## Function to parameterize beta pdf with mean and variance
 ## (thanks stack exchange for the formulas)
-function BetaMV(μ,σ)
+function BetaMV(μ::Float64,σ::Float64)
     α = ((1-μ)/(σ^2) - 1/μ) * μ^2
     β = α*(1/μ - 1)
     return(Beta(α,β))
@@ -23,14 +23,14 @@ end
 
 ## Function to parameterize inverse gamma  pdf with mean and variance
 ## (thanks wikipedia and a pencil)
-function InverseGammaMV(μ,σ)
+function InverseGammaMV(μ::Float64,σ::Float64)
     α = (μ^2)/(σ^2) + 2
     β = μ*(α-1)
     return(InverseGamma(α,β))
 end
 
 ## Function to merge estimating parameters with full parameter list
-function paramVec(params,vectorOfParams,order)
+function paramVec(params::Dict{String,Float64},vectorOfParams::Array{Float64,1},order::Dict{Int64,String})
     params_ret = copy(params)
     for vv in 1:length(vectorOfParams)
         params_ret[order[vv]] = vectorOfParams[vv]
@@ -40,7 +40,7 @@ end
 
 ## Function to turn dictionary of parameters into vector
 ## based on some pre-defined order 
-function estParamVec(dictOfParams,order)
+function estParamVec(dictOfParams::Dict{String,Float64},order::Dict{Int64,String})
     np  = length(keys(dictOfParams))
     VEC = zeros(np,1)
     orderRev = map(reverse,order)
@@ -67,7 +67,7 @@ function gradientFD(f,x;step = 1e-5,index=0)
 end
 
 ## Inverse hessian via finite differencing
-function hessianFD(f,x; step = 1e-5)
+function hessianFD(f,x;step= 1e-5)
     N    = length(x)
     hess = zeros(N,N)
     gx = gradientFD(f,x)
@@ -84,7 +84,7 @@ end
 ##----------------------------------------------------------------------------##
 ## Set the prior 
 ##----------------------------------------------------------------------------##
-function logprior(PARAMS)
+function logprior(PARAMS::Dict{String,Float64})
     # This function evaluates the log prior given a vector of parameter
     # values by using the predetermined distributions.
 
@@ -108,79 +108,26 @@ function logprior(PARAMS)
                 pdf(Normal(2.8,0.5)       , PARAMS["Ψ"]),       
                 pdf(BetaMV(0.8,0.2)       , PARAMS["ρ_p1"]),    
                 pdf(BetaMV(0.15,0.1)      , PARAMS["ρ_p2"]),              
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_p"]),     
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_p"]),     
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_a"]),     
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_a_til"]), 
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_g"]),     
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_s"]),     
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_ν"]),     
                 pdf(BetaMV(0.5,0.2)       , PARAMS["ρ_μ"]),              
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_a"]),     
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_a_til"]), 
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_g"]),     
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_s"]),     
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_ν"]),     
-                pdf(InverseGammaMV(0.05,2), PARAMS["σ_μ"])]
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_a"]),     
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_a_til"]), 
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_g"]),     
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_s"]),     
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_ν"]),     
+                pdf(InverseGammaMV(0.05,2.0), PARAMS["σ_μ"])]
         logP = sum(log.(Prob));
     end
     return(logP)
 end
 
-##----------------------------------------------------------------------------##
-## Setup: set directories and import data 
-##----------------------------------------------------------------------------##
-if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
-    outdirMCMC = "/rigel/sscc/users/jma2241/DT/"
-else
-    outdirMCMC = "../posterior/"
-end
-
-## Import data
-if length(ARGS) == 0
-    startDat = 1
-    outdirMCMC = string(outdirMCMC, "posterior_full/")
-elseif ARGS[1] == "short"
-    startDat = 49
-    outdirMCMC = string(outdirMCMC, "posterior_short/")
-end
-dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)
-datVAR  = dat[:,2:5]
-DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
-DATA    = DATA[:,startDat:end] # short sample
-
-##----------------------------------------------------------------------------##
-## Calibrate parameters and establish order of parameters in vector
-##----------------------------------------------------------------------------##
-
-## Order of variables in vector of estimated parameters
-order = Dict(1 => "ξ",    2 => "Ψ",
-             3 => "ρ_p1", 4 => "ρ_p2",      5 => "σ_p",
-             6 => "ρ_a",  7 => "ρ_a_til",   8 => "ρ_g",  9 => "ρ_s", 10 => "ρ_ν", 11 => "ρ_μ",             
-             12 => "σ_a", 13 => "σ_a_til", 14 => "σ_g", 15 => "σ_s", 16 => "σ_ν", 17 => "σ_μ")
-
-## Calibrated parameters
-calibrated = Dict("p_til"   => 0.5244,
-                  "dstar"   => -0.001,
-                  "s"       => 0.0189,
-                  "g"       => 1.0117204,
-                  "αk"      => 0.32,
-                  "αm"      => 0.05,
-                  "αk_til"  => 0.32,
-                  "δ"       => 0.1255,
-                  "ϕ"       => 6.0,
-                  "b"       => 0.9224,
-                  "Γ"       => 2.0,
-                  "θ"       => 1.6,
-                  "ω"       => 1.6,
-                  "ω_til"   => 1.6)
-
-
-##----------------------------------------------------------------------------##
-## Use minimizer to find (or, hopefully, get closer to) posterior mode.
-##----------------------------------------------------------------------------##
-
 # Derive the posterior mode and save for future uses.
-function logposterior(p)
+function logposterior(calibrated::Dict{String,Float64},p::Array{Float64,1},order::Dict{Int64,String},DATA::Array{Float64,2})
     prior = logprior(paramVec(calibrated,p,order))
     if prior == -Inf
         return(-Inf)
@@ -189,79 +136,140 @@ function logposterior(p)
     end
 end
 
-neglogposterior(p) = -logposterior(p)
-
-# Prior Mean of Theta
-θ0 = Dict("ξ"        => -0.199,       
-          "Ψ"        => 2.8,       
-          "ρ_p1"     => 0.8,    
-          "ρ_p2"     => 0.15,    
-          "σ_p"      => 0.05,     
-          "ρ_a"      => 0.5,     
-          "ρ_a_til"  => 0.5, 
-          "ρ_g"      => 0.5,     
-          "ρ_s"      => 0.5,     
-          "ρ_ν"      => 0.5,     
-          "ρ_μ"      => 0.5,     
-          "σ_a"      => 0.05,     
-          "σ_a_til"  => 0.05, 
-          "σ_g"      => 0.05,     
-          "σ_s"      => 0.05,     
-          "σ_ν"      => 0.05,     
-          "σ_μ"      => 0.05)
-θ0vec = estParamVec(θ0,order)
-
-
-## Initialize the MCMC.
-NP     = length(θ0);     # number of parameters to estimate
-findMode = false
-if findMode == true
-    result = optimize(neglogposterior,θ0vec,LBFGS(), Optim.Options(iterations=200,show_trace=true))
-    Theta  = Optim.minimizer(result)
-    CSV.write("mode.csv", DataFrame(Theta))
-    H = inv(hessianFD(neglogposterior,Theta))
-    CSV.write("H.csv", DataFrame(H))
-else
-    Theta  = vec(convert(Array, CSV.read("mode.csv",allowmissing=:none)))
-    H      = Symmetric(convert(Array, CSV.read("H.csv",allowmissing=:none)))
-end
- 
 ##----------------------------------------------------------------------------##
-## MCMC!
+## Setup: set directories and import data 
 ##----------------------------------------------------------------------------##
-VarR  = 0.2*H;     ## Variance of the random walk. 
-N     = 1_000_000;     ## number of iterations 
-Nsave = 10_000;
-θ0    = rand(MvNormal(Theta, VarR),1)
+function estimate(short::Bool=false)
+    srand(4)
+    if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
+        outdirMCMC = "/rigel/sscc/users/jma2241/DT/"
+    else
+        outdirMCMC = "../posterior/"
+    end
 
-while logposterior(θ0) == -Inf
-    θ0   = rand(MvNormal(Theta, VarR),1)
+    ## Import data
+    if !short 
+        startDat = 1
+        outdirMCMC = string(outdirMCMC, "posterior_full/")
+        modeSuffix = ""
+    else
+        startDat = 50
+        outdirMCMC = string(outdirMCMC, "posterior_short/")
+        #modeSuffix = "_short"
+        modeSuffix = ""
+    end
+    dat     = convert(Array{Float64,2},readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1))
+    datVAR  = dat[:,2:5]
+    DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
+    DATA    = DATA[:,startDat:end] # short sample
+    
+    ##----------------------------------------------------------------------------##
+    ## Calibrate parameters and establish order of parameters in vector
+    ##----------------------------------------------------------------------------##
+    
+    ## Order of variables in vector of estimated parameters
+    order = Dict(1 => "ξ",    2 => "Ψ",
+                 3 => "ρ_p1", 4 => "ρ_p2",      5 => "σ_p",
+                 6 => "ρ_a",  7 => "ρ_a_til",   8 => "ρ_g",  9 => "ρ_s", 10 => "ρ_ν", 11 => "ρ_μ",             
+                 12 => "σ_a", 13 => "σ_a_til", 14 => "σ_g", 15 => "σ_s", 16 => "σ_ν", 17 => "σ_μ")
+    
+    ## Calibrated parameters
+    calibrated = Dict("p_til"   => 0.5244,
+                      "dstar"   => -0.001,
+                      "s"       => 0.0189,
+                      "g"       => 1.0117204,
+                      "αk"      => 0.32,
+                      "αm"      => 0.05,
+                      "αk_til"  => 0.32,
+                      "δ"       => 0.1255,
+                      "ϕ"       => 6.0,
+                      "b"       => 0.9224,
+                      "Γ"       => 2.0,
+                      "θ"       => 1.6,
+                      "ω"       => 1.6,
+                      "ω_til"   => 1.6)
+    
+    
+    ##----------------------------------------------------------------------------##
+    ## Use minimizer to find (or, hopefully, get closer to) posterior mode.
+    ##----------------------------------------------------------------------------##
+    
+    neglogposterior(p::Array{Float64,1}) = -logposterior(calibrated,p,order,DATA)::Float64
+    logposterior_calib(p::Array{Float64,1}) = logposterior(calibrated,p,order,DATA)::Float64
+    # Prior Mean of Theta
+    θ0 = Dict("ξ"        => -0.199,       
+              "Ψ"        => 2.8,       
+              "ρ_p1"     => 0.8,    
+              "ρ_p2"     => 0.15,    
+              "σ_p"      => 0.05,     
+              "ρ_a"      => 0.5,     
+              "ρ_a_til"  => 0.5, 
+              "ρ_g"      => 0.5,     
+              "ρ_s"      => 0.5,     
+              "ρ_ν"      => 0.5,     
+              "ρ_μ"      => 0.5,     
+              "σ_a"      => 0.05,     
+              "σ_a_til"  => 0.05, 
+              "σ_g"      => 0.05,     
+              "σ_s"      => 0.05,     
+              "σ_ν"      => 0.05,     
+              "σ_μ"      => 0.05)
+    θ0vec = estParamVec(θ0,order)
+    
+    
+    ## Initialize the MCMC.
+    NP     = length(θ0);     # number of parameters to estimate
+    findMode = false
+    if findMode == true
+        result = optimize(neglogposterior,θ0vec,LBFGS(), Optim.Options(iterations=200,show_trace=true,x_tol=1e-16,f_tol=1e-16,allow_f_increases=true, g_tol=1e-16))
+        Theta  = Optim.minimizer(result)
+        CSV.write(string("mode",modeSuffix,".csv"), DataFrame(Theta))
+        H = inv(hessianFD(neglogposterior,Theta))
+        CSV.write(string("H",modeSuffix,".csv"), DataFrame(H))
+    end
+    Theta  = vec(convert(Array, CSV.read(string("mode",modeSuffix,".csv"),allowmissing=:none)))
+    H      = Symmetric(convert(Array, CSV.read(string("H",modeSuffix,".csv"),allowmissing=:none)))
+     
+    ##----------------------------------------------------------------------------##
+    ## MCMC!
+    ##----------------------------------------------------------------------------##
+    scale = 0.2;
+    VarR  = scale*H;     ## Variance of the random walk. 
+    N     = 500_000;     ## number of iterations 
+    Nsave = 10_000;
+    θ0    = vec(rand(MvNormal(Theta, VarR),1))
+    
+    while logposterior_calib(θ0) == -Inf
+        θ0   = vec(rand(MvNormal(Theta, VarR),1))
+    end
+    
+    POST = zeros(NP, N) ## POST(;,t) refers to the posterior of time t
+    naccept = 0
+    #tic()    
+    t = 1
+    while t <= N
+        θ1::Array{Float64,1} = vec(θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1))
+        post1::Float64       = logposterior_calib(θ1)
+        if post1 == -Inf
+        else
+            post0 = logposterior_calib(θ0)
+            alpha = minimum([1.0, exp(post1-post0)])
+            if rand(Uniform()) < alpha
+                θ0        = copy(θ1)
+                naccept += 1
+            end
+            POST[:,t] = copy(θ0)
+            t += 1
+            if t % Nsave == 0
+                CSV.write(string(outdirMCMC, "post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
+                println(string("You are at iteration ", t, " of ", N, ". Acceptance rate is: ", naccept/t))
+                #toc()
+                #tic()
+            end
+        end
+
+    end
+
 end
 
-POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
-naccept = 0
-
-for t = 1:N
-    θ1    = θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1)
-    post1 = logposterior(θ1)
-    if post1 == -Inf
-        alpha = -1
-    else
-        post0 = logposterior(θ0)
-        alpha = minimum([1.0, exp(post1-post0)])
-    end
-    if rand(Uniform()) < alpha
-        θ0        = copy(θ1)
-        naccept += 1
-#        println("ACCEPT")
-    else
-#        println("REJECT")
-    end
-#    println(naccept/t)
-    POST[:,t] = copy(θ0)
-    if t % Nsave == 0
-        CSV.write(string(outdirMCMC, "post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
-    end
-        
-end
-
+estimate(true) ## True for short sample, false for full sample

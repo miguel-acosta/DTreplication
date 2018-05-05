@@ -126,8 +126,8 @@ function logprior(PARAMS)
     return(logP)
 end
 
-startDat = 3;
-dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)#dat     = readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", header=true)
+startDat = 50;
+    dat     = convert(Array{Float64,2},readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1))
 datVAR  = dat[:,2:5]
 DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
 DATA    = DATA[:,startDat:end] # short sample
@@ -193,6 +193,7 @@ neglogposterior(p) = -logposterior(p)
 
 
 ## Initialize the MCMC.
+
 NP     = length(θ0);     # number of parameters to estimate
 findMode = false
 if findMode == true
@@ -206,19 +207,50 @@ else
     H      = Symmetric(convert(Array, CSV.read("H.csv",allowmissing=:none)))
 end
  
+# Find Mode and Hessian from simulation
 
+Theta = [-0.199
+          2.8
+          0.8
+          0.15
+          0.05
+          0.5
+          0.5
+          0.5
+          0.5
+          0.5
+          0.5
+          0.05
+          0.05
+          0.05
+          0.05
+          0.05
+          0.05];
 
-VarR = 0.2*H;         ## Variance of the random walk. 
-N     = 100;             ## number of iterations before 3e5
-Nsave = 100;
+Sig = [0.045
+        0.5
+        0.2
+        0.1
+        2
+        0.2
+        0.2
+        0.2
+        0.2
+        0.2
+        0.2
+        2
+        2
+        2
+        2
+        2
+        2];
+
+H = diagm(Sig.^2)
+
+VarR = 0.4*H;         ## Variance of the random walk. 
+N     = 10_000;             ## number of iterations before 3e5
+#Nsave = N;
 θ0   = rand(MvNormal(Theta, VarR),1)
-
-ss = BBsteadystate(paramVec(calibrated,θ0,order))
-#println(ss)
-G1, C0, G0, fmat, fwt, ywt, gev, eu, ind, NY, NEPS, M1 = BBmodel(ss)
-
-#print(eu)
-
 
 while logposterior(θ0) == -Inf
     θ0   = rand(MvNormal(Theta, VarR),1)
@@ -226,6 +258,7 @@ end
 
 POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
 naccept = 0
+tic()
 for t = 1:N
     θ1    = θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1)
     post1 = logposterior(θ1)
@@ -235,18 +268,31 @@ for t = 1:N
         post0 = logposterior(θ0)
         alpha = minimum([1.0, exp(post1-post0)])
     end
+    println(alpha)
     if rand(Uniform()) < alpha
         θ0        = copy(θ1)
         naccept += 1
-#        println("ACCEPT")
+        #println("ACCEPT")
     else
-#        println("REJECT")
+        #println("REJECT")
     end
-#    println(naccept/t)
+    println(string("You are at iteration ", t, " of ", N, ". Acceptance rate is: ", naccept/t))
     POST[:,t] = copy(θ0)
-    if t % Nsave == 0
-        CSV.write(string("posterior/post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
-    end
+    #if t % Nsave == 0
+     #   CSV.write(string("posterior/post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
+      #  println(string("You are at iteration ", t, " of ", N, ". Acceptance rate is: ", naccept/t))
+      #  toc()
+      #  tic()
+    #end
         
 end
 
+POST = POST[:,200_000:end]
+
+for p=1:NP
+  Theta[p]=mode(POST[p,:])
+end
+H = cov(POST')
+
+#CSV.write("mode_simul.csv", DataFrame(Theta))
+#CSV.write("H_simul.csv", DataFrame(H))

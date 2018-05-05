@@ -1,7 +1,7 @@
 using Distributions
 
 
-function kalmanLikelihood(parameters, data)
+function kalmanLikelihood(parameters::Dict{String,Float64}, data::Array{Float64,2})
     # inputs: parameters, data 
     ss = BBsteadystate(parameters)
     G1, C0, G0, fmat, fwt, ywt, gev, eu, ind, NY, NEPS, M1 = BBmodel(ss)
