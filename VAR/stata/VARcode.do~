@@ -1,0 +1,5 @@
+tsset Year
+var com gdp con inv tb, lags(1/2) exog(Year) nocons
+irf create model1, step(20) set(irf1, replace)
+irf graph oirf, impulse(com) response(gdp con inv tb) byopts(rescale rows(1)) level(80)
+

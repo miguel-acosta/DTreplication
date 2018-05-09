@@ -57,8 +57,6 @@ indExpE = Dict("Exp_λ"    => 30,
                "Exp_R2"   => 34,
                "Exp_K"    => 35)
 
-
-
 # Index of exogenous shocks
 indExog = Dict("ϵ_A"     => 1,
                "ϵ_A_til" => 2,
@@ -82,8 +80,8 @@ constant = zeros(NY,1);
 # Eq1 Marginal Utility Def  #checked.
 g0[1,ind["λ"]]      = -1/Γ*(λ^(-1/Γ));
 g0[1,ind["C"]]      = -c;
-g0[1,ind["N1"]]     = θ*(n1^ω); 
-g0[1,ind["N2"]]     = θ*(n2^ω_til);
+g0[1,ind["N1"]]     = (θ/ω)*(n1^ω); 
+g0[1,ind["N2"]]     = (θ/ω_til)*(n2^ω_til);
 
 # Eq2 Labor Supply1 #checked.
 g0[2,ind["N1"]]     = ω-1;
@@ -103,7 +101,7 @@ g0[4,ind["Exp_G"]]     = b*(g^(2-Γ))*ϕ;
 g0[4,ind["ν"]]         = -1;
 g0[4,ind["λ"]]         = -1;
 g0[4,ind["K"]]         = -ϕ*g*(1+b*g^(1-Γ));
-g0[4,ind["G"]]         = -ϕ*g+Γ;
+g0[4,ind["G"]]         = -(ϕ*g+Γ);
 
 g1[4,ind["K"]]         = -ϕ*g;
 
@@ -114,9 +112,9 @@ g0[5,ind["Exp_R2"]]    = -1;
 
 # Eq6 Euler Equation Debt
 
-g0[6,ind["Exp_λ"]] = 1;
+g0[6,ind["Exp_λ"]]     = 1;
 g0[6,ind["Exp_ν"]]     = 1;
-g0[6,ind["R"]]         = 1/(1+r);
+g0[6,ind["R"]]         = 1/(1+r);  # LINEARIZED
 g0[6,ind["ν"]]         = -1;
 g0[6,ind["λ"]]         = -1;
 g0[6,ind["G"]]         = -Γ;
@@ -127,19 +125,19 @@ g0[7,ind["Y"]]         = y;
 g0[7,ind["Y_til"]]     = p_til*y_til;
 g0[7,ind["P_til"]]     = p_til*(y_til-m_til);
 g0[7,ind["M_til"]]     = -p_til*m_til;
-g0[7,ind["D"]]         = (d*g)/(1+r);
+g0[7,ind["D"]]         = g/(1+r);  ## LINEARIZED
 g0[7,ind["G"]]         = (d*g)/(1+r);
-g0[7,ind["R"]]         = -(d*g)/(1+r)^2;
+g0[7,ind["R"]]         = -(d*g)/(1+r)^2; ## LINEARIZED
 g0[7,ind["C"]]         = -c;
 g0[7,ind["I"]]         = -INV;
 g0[7,ind["S"]]         = -s;
 
-g1[7,ind["D"]]         = d;
+g1[7,ind["D"]]         = 1;  ## LINEARIZED
 
 # Eq8 Interest rate process
 g0[8,ind["R"]]         = 1;
-g0[8,ind["D"]]         = -Ψ*ygdp; ## We fixed this from d to ygdp because debt can't be log linearized
-g0[8,ind["P_til"]]     = -ξ;
+g0[8,ind["D"]]         = -Ψ; ## LINEARIZED
+g0[8,ind["P_til"]]     = -ξ; 
 g0[8,ind["μ"]]         = -1;
 
 # Eq9 R1 MPK1
@@ -187,31 +185,29 @@ g0[15,ind["G"]]        = -(1-αk_til);
 g1[15,ind["K2"]]       = αk_til;
 
 # Eq16 TB Definition
-g0[16,ind["TB"]]       = ygdp;
+g0[16,ind["TB"]]       = 1;  ## LINEARIZED
 g0[16,ind["Y"]]        = -y;
 g0[16,ind["C"]]        = c;
 g0[16,ind["I"]]        = INV;
 g0[16,ind["S"]]        = s;
-g0[16,ind["Ygdp"]]     = tb;
+
 
 # Eq17 TB_til Def
-g0[17,ind["TB_til"]]   = ygdp;
+g0[17,ind["TB_til"]]   = 1; ## LINEARIZED
 g0[17,ind["P_til"]]    = -p_til*(y_til-m_til);
 g0[17,ind["Y_til"]]    = -p_til*y_til;
 g0[17,ind["M_til"]]    = p_til*m_til;
-g0[17,ind["Ygdp"]]     = tb_til;
+
 
 # Eq18 Ygdp Def
 g0[18,ind["Ygdp"]]     = ygdp;
 g0[18,ind["Y"]]        = -y;
-g0[18,ind["P_til"]]    = p_til*(m_til-y_til);
-g0[18,ind["Y_til"]]    = -p_til*y_til;
-g0[18,ind["M_til"]]    = p_til*m_til;
+g0[18,ind["TB_til"]]    = -1; ## LINEARIZED
 
 # Eq19 TBtotal Def
-g0[19,ind["TBtotal"]]  = 1;
-g0[19,ind["TB"]]       = -1;
-g0[19,ind["TB_til"]]   = -1;
+g0[19,ind["TBtotal"]]  = 1;   ## LINEARIZED
+g0[19,ind["TB"]]       = -1;  ## LINEARIZED
+g0[19,ind["TB_til"]]   = -1;  ## LINEARIZED
 
 # Eq20 K definition K=K1+K2
 g0[20,ind["K"]]        = k;
@@ -298,8 +294,8 @@ constant[38]            = log(g);
 
 #tby_obs = tbaggout;                               % this is the empirical ratio
 g0[39,ind["TBYobs"]]    = 1;
-g0[39,ind["TBtotal"]]   = -1;
-g0[39,ind["Ygdp"]]      = 1; 
+g0[39,ind["TBtotal"]]   = -1/ygdp;
+g0[39,ind["Ygdp"]]      = tbtotal/ygdp; # I think this has to be tbtotal/ygdp
 
 
 

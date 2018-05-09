@@ -258,10 +258,11 @@ Nupdate = 1_000;
 Nsave = 10_000;
 
 θ0   = rand(MvNormal(Theta, VarR),1)
-
+###
 while logposterior(θ0) == -Inf
     θ0   = rand(MvNormal(Theta, VarR),1)
 end
+###
 
 POST = zeros(NP, N); ## POST(;,t) refers to the posterior of time t
 naccept = 0

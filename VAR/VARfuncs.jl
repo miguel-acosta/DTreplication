@@ -2,12 +2,12 @@ using IterableTables, DataFrames
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
-function VARols(P, variables; chop=0, cons = true, Z= [])
+function VARols(P, variables; chop=0, cons = true, Z= [], βfixed=[])
     if chop > 0
         variables = variables[(chop+1):end,:]
     end
-    V        = length(variables)
-    TT       = length(variables[1])
+    V        = size(variables)[2]
+    TT       = size(variables)[1]
     A        = zeros(V,V,P)
     ## Vector to store coeff. on constant or any other non-dynamic variables Z
     if cons == true && !isempty(Z)
@@ -24,12 +24,11 @@ function VARols(P, variables; chop=0, cons = true, Z= [])
     end
     μ        = zeros(V, nz)
     
-    
     u        = zeros(TT-P,V)
 
     for depvar = 1:V
         ## Get y variable
-        y = variables[depvar][(P+1):TT]
+        y = variables[(P+1):TT,depvar]
 
         ## Create x matrix
         X = zeros(TT-P, P*V+nz)
@@ -39,12 +38,17 @@ function VARols(P, variables; chop=0, cons = true, Z= [])
         col = nz+1
         for pp = 1:P
             for vv = 1:V
-                x = variables[vv]
+                x = variables[:,vv]
                 X[:,col] = x[(P-pp+1):(TT-pp)]
                 col += 1
             end
         end
-        β = (X.' * X) \ X.' * y
+
+        if !isempty(βfixed)
+            β = copy(βfixed[depvar,:])
+        else
+            β = (X.' * X) \ X.' * y
+        end
         μ[depvar,:] = β[1:nz]
         u[:,depvar] = y - X*β
 
@@ -57,8 +61,8 @@ function VARols(P, variables; chop=0, cons = true, Z= [])
 #    for tt = 1:(TT-P)
 #        Σ += u[tt,:] * u[tt,:].'
     #    end
-    print(mean(u))
-    print("\n")
+#    print(mean(u))
+#    print("\n")
     Σ = (u.'*u)/(size(u)[1])
     
 #    Σ = cov(u[pmax:end,:],1,false)
@@ -141,7 +145,7 @@ function plotts(y, name, snames;sub=true,
         plot(1:T, repmat([0],T,1), color = "black", linewidth = 1)
         plot(1:T, y[:,ii], linewidth = 2,label=snames[ii],color=COLORS[ii],
              linestyle=LINESTYLES[ii])
-        xlim(0,T)
+        xlim(1,T)
         xlabel("t")
         title(snames[ii])
         ylabel(units[ii])        
@@ -290,7 +294,7 @@ end
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
-function plotIRF(y, vname, fname, ;units="Percent", CIlow = [], CIhigh=[],Clevel=95,TITLE="")
+function plotIRF(y, vname, fname, ;units="Percent", CIlow = [], CIhigh=[],Clevel=95,TITLE="", makeLegend=true, YTICKS = [])
     T = size(y)[1]    
     f = figure(figsize = (5,4))
     plot(1:T, repmat([0],T,1), color = "black", linewidth = 1)
@@ -301,23 +305,28 @@ function plotIRF(y, vname, fname, ;units="Percent", CIlow = [], CIhigh=[],Clevel
     if length(size(y)) > 1
         for ss in 1:size(y)[2]
             plot(1:T, y[:,ss], linewidth = 2, label=vname[ss],
-                 linestyle=LINESTYLES[ss], color=COLORS[ss])
+                 linestyle=LINESTYLES[ss], color=COLORS[ss]; myfonts)
         end
     else
-        plot(1:T, y, linewidth = 2, label=vname)
+        plot(1:T, y, linewidth = 2, label=vname,color="#ff3341")
         TITLE = vname
     end
 
 
     if length(CIlow)>0
-        fill_between(1:T, CIlow, CIhigh, facecolor="gray",
+        fill_between(1:T, CIlow, CIhigh, facecolor="#33eeff",
                      alpha=0.5,label=string(Clevel, "% CI"))
     end
-    xlim(0,T)
+    xlim(1,T)
+    if length(YTICKS)>0
+        yticks(YTICKS)
+    end
     xlabel("t")
     title(TITLE)
     ylabel(units)
-    legend()
+    if makeLegend
+        legend()
+    end
     savefig(string(fname,".pdf"))
     close(f)
     close()

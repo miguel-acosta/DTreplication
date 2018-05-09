@@ -70,7 +70,7 @@ responses_tols  = IRF(Aolst, μolst[:,1]*0, 20, [0, 0, 0, 0, 0.22]).' * 100
 responses_ctols = IRF(Aolsct, μolsct[:,1]*0, 20, [0, 0, 0, 0, 0.22]).' * 100
 ##--## responses = IRFdt(βt, zeros(1,N), 20, [0, 0, 0, 0, 0.22]).' * 100
 ##--## responses = IRFdt(βt, 0*αt, [0, 0, 0, 0, 0.22]) * 100
-responses = IRFdt(Aolsct, μolsct, [0, 0, 0, 0, 0.22]) * 100
+responses = IRFdt(Aolsct, 0, [0, 0, 0, 0, 0.22]) * 100
 ##--## 
 ##--## 
 plotIRF(responses[:,1], "Log Real GDP  Capita"                 , "output/IRF_Y_P")

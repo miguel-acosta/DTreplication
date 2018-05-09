@@ -32,7 +32,7 @@ par = Dict("p_til"   => 0.5244,
            "σ_ν"     => 0.1,
            "σ_μ"     => 0.1,
            "ρ_p1"    => 0.95,
-           "ρ_p2"    => -0.13,
+           "ρ_p2"    => 0.13,
            "σ_p"     => 0.1064)
 
 # Get the steady state
@@ -53,7 +53,7 @@ end
  
  # Figure 4
 shock     = ind["ϵ_P"]
-titles    = ["GDP", "Consumption", "Investment", "Trade balance"]
-variables = [ind["Ygdp"], ind["C"], ind["I"], ind["TBtotal"]]
+titles    = ["GDP", "Consumption", "Investment", "Trade balance/GDP", "Shock"]
+variables = [ind["Ygdp"], ind["C"], ind["I"], ind["TBYobs"], ind["P_til"]]
 
 plotIRF(IRF*100, variables, shock, titles, "figures/figure4")

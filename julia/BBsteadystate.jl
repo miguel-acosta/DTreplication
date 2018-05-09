@@ -42,8 +42,8 @@ function BBsteadystate(PAR::Dict{String,Float64})
     
     #    S          = optimize(eqns, [1.0,1.0], BFGS())
     S          = nlsolve(f!, [1.0,1.0])
-    k1_n1      = S.zero[1]  #minx[1]
-    m_til_n1   = S.zero[2]  #minx[2]
+    k1_n1      = S.zero[1]  #minx[1] 1.33570465442287390000 
+    m_til_n1   = S.zero[2]  #minx[2] 0.09360122597253398000 
   
     y_n1       = g^(1-αk-αm)*(k1_n1)^(αk)*(m_til_n1)^(αm)
     w1         = (1-αk-αm)*(y_n1)

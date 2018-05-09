@@ -30,7 +30,7 @@ function plotIRF(IRF, idx, shock, vname, fname, ;units="Percent", CI = false,Cle
     end
 
 
-    if length(CIlow)>0
+    if length(IRFCI)>0
         fill_between(1:T, CIlow, CIhigh, facecolor="gray",
                      alpha=0.5,label=string(Clevel, "% CI"))
     end
