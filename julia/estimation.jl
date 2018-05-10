@@ -9,8 +9,10 @@ include("BBsteadystate.jl")
 ##----------------------------------------------------------------------------##
 
 ## Function for stability of AR(2) coefficients:
-function stableAR2(ϕ1::Float64, ϕ2::Float64)
-    return( (ϕ2<1+ϕ1) & (ϕ2<1-ϕ1) & (ϕ2>-1) )
+function stableAR2(ϕ1::Float64, ϕ2::Float64; neg::Bool=true)
+    ## In the model we parameterize the AR2 with a minus sign
+    Φ2 = neg  ? -ϕ2 : ϕ2
+    return( (Φ2<1+ϕ1) & (Φ2<1-ϕ1) & (Φ2>-1) )
 end
 
 ## Function to parameterize beta pdf with mean and variance
@@ -84,7 +86,7 @@ end
 ##----------------------------------------------------------------------------##
 ## Set the prior 
 ##----------------------------------------------------------------------------##
-function logprior(PARAMS::Dict{String,Float64})
+function logprior(PARAMS::Dict{String,Float64}, meanξ::Float64, sdξ::Float64)
     # This function evaluates the log prior given a vector of parameter
     # values by using the predetermined distributions.
 
@@ -100,11 +102,10 @@ function logprior(PARAMS::Dict{String,Float64})
     unstableAR1 = any([(PARAMS[pp] < -1) | (PARAMS[pp] > 1) for pp in ["ρ_a", "ρ_a_til", "ρ_g", "ρ_s", "ρ_ν", "ρ_μ"]])
     negStdev    = any([PARAMS[pp] < 0                  for pp in ["σ_a", "σ_a_til", "σ_g", "σ_s", "σ_ν", "σ_μ", "σ_p"]])
     unstableAR2 = !stableAR2(PARAMS["ρ_p1"], PARAMS["ρ_p2"])
-    
     if unstableAR1 | negStdev | unstableAR2
         logP = -Inf
     else
-        Prob = [pdf(Normal(-0.199,0.045)  , PARAMS["ξ"]),       
+        Prob = [pdf(Normal(meanξ,sdξ)     , PARAMS["ξ"]),       
                 pdf(Normal(2.8,0.5)       , PARAMS["Ψ"]),       
                 pdf(BetaMV(0.8,0.2)       , PARAMS["ρ_p1"]),    
                 pdf(BetaMV(0.15,0.1)      , PARAMS["ρ_p2"]),              
@@ -127,8 +128,9 @@ function logprior(PARAMS::Dict{String,Float64})
 end
 
 # Derive the posterior mode and save for future uses.
-function logposterior(calibrated::Dict{String,Float64},p::Array{Float64,1},order::Dict{Int64,String},DATA::Array{Float64,2})
-    prior = logprior(paramVec(calibrated,p,order))
+function logposterior(calibrated::Dict{String,Float64},p::Array{Float64,1},order::Dict{Int64,String},
+                      DATA::Array{Float64,2}, meanξ::Float64, sdξ::Float64)
+    prior = logprior(paramVec(calibrated,p,order), meanξ, sdξ)
     if prior == -Inf
         return(-Inf)
     else
@@ -139,25 +141,38 @@ end
 ##----------------------------------------------------------------------------##
 ## Setup: set directories and import data 
 ##----------------------------------------------------------------------------##
-function estimate(short::Bool=false)
+function estimate(;short::Bool=false,flatξ::Bool=false)
     srand(4)
     if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
         outdirMCMC = "/rigel/sscc/users/jma2241/DT/"
     else
-        outdirMCMC = "../posterior/"
+        outdirMCMCstub = "../posterior/"
     end
 
-    ## Import data
+    ## Which sample
     if !short 
         startDat = 1
-        outdirMCMC = string(outdirMCMC, "posterior_full/")
+        outdirMCMC = string(outdirMCMCstub, "posterior_full/")
         modeSuffix = ""
-    else
+    else 
         startDat = 50
-        outdirMCMC = string(outdirMCMC, "posterior_short/")
-        #modeSuffix = "_short"
-        modeSuffix = ""
+        outdirMCMC = string(outdirMCMCstub, "posterior_short/")
+        modeSuffix = "_short"
+
     end
+
+    ## Which prior
+    if flatξ
+        outdirMCMC = string(outdirMCMCstub, "posterior_flat/")
+        meanξ = 0.0
+        sdξ   = 1.0
+        modeSuffix = "_flat"
+    else 
+        meanξ = -0.199
+        sdξ   = 0.045
+    end
+
+    ## Import data 
     dat     = convert(Array{Float64,2},readxlsheet("../VAR/DataVAR.xlsx", "Sheet1", skipstartrows=1))
     datVAR  = dat[:,2:5]
     DATA    = [datVAR[2:end,1:3] - datVAR[1:(end-1),1:3] datVAR[2:end,4]].' #DATA(:,t) refers to period t's observations.
@@ -194,8 +209,8 @@ function estimate(short::Bool=false)
     ## Use minimizer to find (or, hopefully, get closer to) posterior mode.
     ##----------------------------------------------------------------------------##
     
-    neglogposterior(p::Array{Float64,1}) = -logposterior(calibrated,p,order,DATA)::Float64
-    logposterior_calib(p::Array{Float64,1}) = logposterior(calibrated,p,order,DATA)::Float64
+    neglogposterior(p::Array{Float64,1}) = -logposterior(calibrated,p,order,DATA,meanξ,sdξ)::Float64
+    logposterior_calib(p::Array{Float64,1}) = logposterior(calibrated,p,order,DATA,meanξ,sdξ)::Float64
     # Prior Mean of Theta
     θ0 = Dict("ξ"        => -0.199,       
               "Ψ"        => 2.8,       
@@ -215,37 +230,42 @@ function estimate(short::Bool=false)
               "σ_ν"      => 0.05,     
               "σ_μ"      => 0.05)
     θ0vec = estParamVec(θ0,order)
-    
+    θ0vec = [-0.2212, 2.8,
+             0.81, 0.13,0.18,
+             0.83, 0.59, 0.52,  0.64, 0.87, 0.92,
+             0.03, 0.05, 0.026, 0.19, 0.46, 0.05 ] # paper posterior mean
     
     ## Initialize the MCMC.
     NP     = length(θ0);     # number of parameters to estimate
-    findMode = false
+    findMode = true
     if findMode == true
-        result = optimize(neglogposterior,θ0vec,LBFGS(), Optim.Options(iterations=200,show_trace=true,x_tol=1e-16,f_tol=1e-16,allow_f_increases=true, g_tol=1e-16))
+        
+        result = optimize(neglogposterior,θ0vec,LBFGS(),
+                          Optim.Options(iterations=200,show_trace=true,
+                                        x_tol=1e-16,f_tol=1e-16,g_tol=1e-16))
+        ## Note that 200 is nonbinding in practice
         Theta  = Optim.minimizer(result)
-        CSV.write(string("mode",modeSuffix,".csv"), DataFrame(Theta))
+        CSV.write(string("init/mode",modeSuffix,".csv"), DataFrame(Theta))
         H = inv(hessianFD(neglogposterior,Theta))
-        CSV.write(string("H",modeSuffix,".csv"), DataFrame(H))
+        CSV.write(string("init/H",modeSuffix,".csv"), DataFrame(H))
     end
-    Theta  = vec(convert(Array, CSV.read(string("mode",modeSuffix,".csv"),allowmissing=:none)))
-    H      = Symmetric(convert(Array, CSV.read(string("H",modeSuffix,".csv"),allowmissing=:none)))
+    Theta  = vec(convert(Array, CSV.read(string("init/mode",modeSuffix,".csv"),allowmissing=:none)))
+    H      = Symmetric(convert(Array, CSV.read(string("init/H",modeSuffix,".csv"),allowmissing=:none)))
      
     ##----------------------------------------------------------------------------##
     ## MCMC!
     ##----------------------------------------------------------------------------##
     scale = 0.2;
     VarR  = scale*H;     ## Variance of the random walk. 
-    N     = 500_000;     ## number of iterations 
-    Nsave = 10_000;
+    N     = 500;     ## number of iterations 
+    Nsave = 100;
     θ0    = vec(rand(MvNormal(Theta, VarR),1))
     
     while logposterior_calib(θ0) == -Inf
         θ0   = vec(rand(MvNormal(Theta, VarR),1))
     end
-    
     POST = zeros(NP, N) ## POST(;,t) refers to the posterior of time t
     naccept = 0
-    #tic()    
     t = 1
     while t <= N
         θ1::Array{Float64,1} = vec(θ0+ rand(MvNormal(vec(zeros(NP,1)), VarR),1))
@@ -263,8 +283,6 @@ function estimate(short::Bool=false)
             if t % Nsave == 0
                 CSV.write(string(outdirMCMC, "post", Int(t/Nsave) , ".csv"), DataFrame(POST[:,(t-Nsave+1):t]), header = false)
                 println(string("You are at iteration ", t, " of ", N, ". Acceptance rate is: ", naccept/t))
-                #toc()
-                #tic()
             end
         end
 
@@ -272,4 +290,12 @@ function estimate(short::Bool=false)
 
 end
 
-estimate(true) ## True for short sample, false for full sample
+if length(ARGS) > 0
+    short_in = any([aa == "short" for aa in ARGS])
+    flatξ_in = any([aa == "flat" for aa in ARGS])
+else
+    short_in = true
+    flatξ_in = true
+end
+
+estimate(;short = short_in, flatξ = flatξ_in) ## True for short sample, false for full sample
