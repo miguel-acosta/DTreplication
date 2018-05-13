@@ -53,7 +53,7 @@ end
  
  # Figure 4
 shock     = ind["ϵ_P"]
-titles    = ["GDP", "Consumption", "Investment", "Trade balance/GDP", "Shock"]
-variables = [ind["Ygdp"], ind["C"], ind["I"], ind["TBYobs"], ind["P_til"]]
+titles    = ["GDP", "Consumption", "Investment", "Trade balance/GDP"]
+variables = [ind["Ygdp"], ind["C"], ind["I"], ind["TBYobs"]]
 
-plotIRF(IRF*100, variables, shock, titles, "figures/figure4")
+plotIRF(IRF[:,shock,:]*100, variables, shock, titles, "figures/figure4")

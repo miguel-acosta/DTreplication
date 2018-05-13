@@ -12,7 +12,7 @@ trend  = dat[:,1]
 
 tIRF = 10
 Ndraws = 9999
-Clevel = 100
+Clevel = 80
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
 ##----------------------------------------------------------------------------##
@@ -59,16 +59,17 @@ end
 CIlow = zeros(tIRF,N)
 CIhigh = zeros(tIRF,N)
 for nn = 1:N
-    CIlow[:,nn] = [percentile(vec(IRF_MC[tt,nn,:]),Int( (100-Clevel)/2)) for tt in 1:tIRF]
+    CIlow[:,nn] =  [percentile(vec(IRF_MC[tt,nn,:]),Int(    (100-Clevel)/2)) for tt in 1:tIRF]
     CIhigh[:,nn] = [percentile(vec(IRF_MC[tt,nn,:]),Int(100-(100-Clevel)/2)) for tt in 1:tIRF]
 end
     
-## IRF_SD = std(IRF_MC,3)
-## 
-## for nn = 1:N
-##     CIlow[:,nn] = responses[:,nn]  -1.28*IRF_SD[:,nn]
-##     CIhigh[:,nn] = responses[:,nn] +1.28*IRF_SD[:,nn]
-## end
+IRF_SD = std(IRF_MC,3)
+
+crit = quantile(Normal(0,1),(100-Clevel)/200)
+ for nn = 1:N
+     CIlow[:,nn] = responses[:,nn]  -crit*IRF_SD[:,nn]
+     CIhigh[:,nn] = responses[:,nn] +crit*IRF_SD[:,nn]
+ end
 
 
 
