@@ -25,7 +25,7 @@ function getDraws(DIR, drawsPerFile, nfiles, order, burnin; mergeDraws = true)
     end
     ndraws = size(draws)[2]
     return(draws, ndraws)
-else
+end
 
 ##----------------------------------------------------------------------------##
 ## CI for IRF
@@ -147,4 +147,6 @@ end
 
 
 
-makeIRFplots("posterior_short_20180511/") #; nfiles = 1)
+makeIRFplots("posterior_flat_20180511/") #; nfiles = 1)
+#makeIRFplots("posterior_short_20180511/") #; nfiles = 1)
+#makeIRFplots("posterior_short_20180511/") #; nfiles = 1)
