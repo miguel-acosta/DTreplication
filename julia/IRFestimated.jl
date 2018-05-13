@@ -1,11 +1,42 @@
 using CSV, Distributions, Stats, DataFrames
-@everywhere include("BBsteadystate.jl")
-@everywhere include("BBmodel.jl")
+include("BBsteadystate.jl")
+include("BBmodel.jl")
 include("IRFplot.jl")
 
 ##----------------------------------------------------------------------------##
 ## Options
 ##----------------------------------------------------------------------------##
+
+##----------------------------------------------------------------------------##
+## Auxiliary Functions and Ordering ov variables 
+##----------------------------------------------------------------------------##
+## Function to merge estimating parameters with full parameter list
+function paramVec(params,vectorOfParams,order)
+    params_ret = copy(params)
+    for vv in 1:length(vectorOfParams)
+        params_ret[order[vv]] = vectorOfParams[vv]
+    end
+    return(params_ret)
+end
+
+function modeBin(vv::Array{Float64}; nbin::Int64=1000)
+    bins::Array{Float64}   = (minimum(vv)-1e-8):((maximum(vv)-minimum(vv))/nbin):maximum(vv)
+    nbin::Int64            = length(bins)
+    binMed::Array{Float64} = zeros(nbin-1,1)
+    binVal::Array{Float64} = zeros(nbin-1,1)
+    J::Int64 = length(vv)
+    for ii = 2:nbin
+        binMed[ii-1] = (bins[ii]+bins[ii-1])/2
+        binVal[ii-1] = sum((vv .> bins[ii-1]) .* (vv .<= bins[ii]))
+#        binVal[ii-1] = sum([(vv[jj] > bins[ii-1]) & (vv[jj] <= bins[ii-1]) for jj in 1:J])
+    end
+    mxval,mxind = findmax(binVal)
+    return(binMed[mxind[1]])
+end
+#param =  ["ξ", "ψ", "ρ_p1", "ρ_p2", "σ_p",
+#           "ρ_a", "ρ_a_til", "ρ_g", "ρ_s", "ρ_nu", "ρ_mu",
+#           "σ_a", "σ_a_til", "σ_g", "σ_s", "σ_nu", "σ_mu"]
+
 
 ##----------------------------------------------------------------------------##
 ## Read in and merge posterior draws
@@ -45,6 +76,7 @@ function getIRFatMode(draws, order, calibrated, T)
     end
     return(IRFmode, NY, NEPS, ind) 
 end
+
 
 function IRFdist(draws, NY, ind, calibrated, order, shock, T)
     ndraws    = size(draws)[2]
@@ -144,7 +176,6 @@ function makeIRFplots(pltdir; burnin  = 0.25, drawsPerFile = 10_000, nfiles = 0,
     plotIRF(IRFforLine*100, variables, shock, titles, string("figures/",pltdir,"TB"); CI = true, IRFCI = IRF*100, LINELABEL = "IRF at Posterior Mode", TITLE = "Trade balance/GDP")
     
 end
-
 
 
 makeIRFplots("posterior_flat_20180511/") #; nfiles = 1)
