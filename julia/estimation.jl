@@ -144,7 +144,7 @@ end
 function estimate(;short::Bool=false,flatξ::Bool=false)
     srand(4)
     if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
-        outdirMCMC = "/rigel/sscc/users/jma2241/DT/"
+        outdirMCMCstub = "/rigel/sscc/users/jma2241/DT/"
     else
         outdirMCMCstub = "../posterior/"
     end
@@ -237,7 +237,7 @@ function estimate(;short::Bool=false,flatξ::Bool=false)
     
     ## Initialize the MCMC.
     NP     = length(θ0);     # number of parameters to estimate
-    findMode = true
+    findMode = false
     if findMode == true
         
         result = optimize(neglogposterior,θ0vec,LBFGS(),
@@ -257,10 +257,11 @@ function estimate(;short::Bool=false,flatξ::Bool=false)
     ##----------------------------------------------------------------------------##
     scale = 0.2;
     VarR  = scale*H;     ## Variance of the random walk. 
-    N     = 500;     ## number of iterations 
-    Nsave = 100;
+    N     = 1_000_000;     ## number of iterations 
+    Nsave = 10_000;
     θ0    = vec(rand(MvNormal(Theta, VarR),1))
-    
+    println(outdirMCMC)    
+
     while logposterior_calib(θ0) == -Inf
         θ0   = vec(rand(MvNormal(Theta, VarR),1))
     end
@@ -292,10 +293,10 @@ end
 
 if length(ARGS) > 0
     short_in = any([aa == "short" for aa in ARGS])
-    flatξ_in = any([aa == "flat" for aa in ARGS])
+    flatξ_in = any([aa == "flat"  for aa in ARGS])
 else
-    short_in = true
-    flatξ_in = true
+    short_in = false
+    flatξ_in = false
 end
 
 estimate(;short = short_in, flatξ = flatξ_in) ## True for short sample, false for full sample

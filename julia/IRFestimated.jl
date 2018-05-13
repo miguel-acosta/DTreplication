@@ -1,22 +1,28 @@
 using CSV, Distributions, Stats, DataFrames
-include("BBsteadystate.jl")
-include("BBmodel.jl")
+@everywhere include("BBsteadystate.jl")
+@everywhere include("BBmodel.jl")
 include("IRFplot.jl")
 
 ##----------------------------------------------------------------------------##
 ## Options
 ##----------------------------------------------------------------------------##
-indir   = "../posterior/posterior_short_500k_20180504/"
-pltdir  = "/posterior_short_500k_20180504/"
+@everywhere mnemonic   = "posterior_short_500k_20180504"
+
 nfiles = 50
 burnin = 0.25
 drawsPerFile = 10_000
 
+if contains(pwd(), "jma2241") # Tells us whether we're on the cluster
+    @everywhere indir = string("/rigel/sscc/users/jma2241/DT/", mnemonic, "/")
+else 
+    @everywhere indir = string("../posterior/", mnemonic, "/")
+end
+pltdir  = string(mnemonic, "/")
 ##----------------------------------------------------------------------------##
 ## Auxiliary Functions and Ordering ov variables 
 ##----------------------------------------------------------------------------##
 ## Function to merge estimating parameters with full parameter list
-function paramVec(params,vectorOfParams,order)
+@everywhere function paramVec(params,vectorOfParams,order)
     params_ret = copy(params)
     for vv in 1:length(vectorOfParams)
         params_ret[order[vv]] = vectorOfParams[vv]
@@ -24,7 +30,7 @@ function paramVec(params,vectorOfParams,order)
     return(params_ret)
 end
 
-function modeBin(vv::Array{Float64}; nbin::Int64=1000)
+@everywhere function modeBin(vv::Array{Float64}; nbin::Int64=1000)
     bins::Array{Float64}   = (minimum(vv)-1e-8):((maximum(vv)-minimum(vv))/nbin):maximum(vv)
     nbin::Int64            = length(bins)
     binMed::Array{Float64} = zeros(nbin-1,1)
@@ -43,13 +49,13 @@ end
 #           "σ_a", "σ_a_til", "σ_g", "σ_s", "σ_nu", "σ_mu"]
 
 ## Order of variables in vector of estimated parameters
-order = Dict(1 => "ξ",    2 => "Ψ",
+@everywhere order = Dict(1 => "ξ",    2 => "Ψ",
              3 => "ρ_p1", 4 => "ρ_p2",      5 => "σ_p",
              6 => "ρ_a",  7 => "ρ_a_til",   8 => "ρ_g",  9 => "ρ_s", 10 => "ρ_ν", 11 => "ρ_μ",             
              12 => "σ_a", 13 => "σ_a_til", 14 => "σ_g", 15 => "σ_s", 16 => "σ_ν", 17 => "σ_μ")
 
 ## Calibrated parameters
-calibrated = Dict("p_til"   => 0.5244,
+@everywhere calibrated = Dict("p_til"   => 0.5244,
                   "dstar"   => -0.001,
                   "s"       => 0.0189,
                   "g"       => 1.0117204,
@@ -76,12 +82,12 @@ if mergeDraws
         tempFile = convert(Array,CSV.read(string(indir, "post", pp, ".csv"),header=false))
         draws[:,((pp-1)*drawsPerFile+1):(pp*drawsPerFile)] = tempFile
     end
-    draws = convert(Array,draws[:,Int(ndraws*burnin):ndraws])
+    @everywhere  draws = convert(Array,draws[:,Int(ndraws*burnin):ndraws])
     CSV.write(string(indir, "postAll.csv"), DataFrame(draws))        
 else
     tic()
     println("Opening")
-    draws = convert(Array, CSV.read(string(indir, "postAll.csv"),allowmissing=:none))
+    @everywhere draws = convert(Array, CSV.read(string(indir, "postAll.csv"),allowmissing=:none))
     toc()
 end
 ndraws = size(draws)[2]
@@ -91,7 +97,7 @@ ndraws = size(draws)[2]
 # Solve model once, to get the dimensions and modal response
 tic()
 println("Posterior Mode")
-postMode = [modeBin(draws[ii,:]) for ii in 1:size(draws)[1]]
+@everywhere postMode = [modeBin(draws[ii,:]) for ii in 1:size(draws)[1]]
 toc()
 calibratedParams = [-0.199, 2.8, 0.95, 0.13, 0.1064,
                     0.9,0.9,0.9,0.9,0.9,0.9,
@@ -99,9 +105,9 @@ calibratedParams = [-0.199, 2.8, 0.95, 0.13, 0.1064,
 
 println([postMode calibratedParams])
 
-T   = 10
-ss  = BBsteadystate(paramVec(calibrated,postMode,order));
-G1mode, C0_, G0mode, fmat_, fwt_, ywt_, gev_, eu_, ind, NY, NEPS = BBmodel(ss)
+@everywhere T   = 10
+@everywhere ss  = BBsteadystate(paramVec(calibrated,postMode,order));
+@everywhere G1mode, C0_, G0mode, fmat_, fwt_, ywt_, gev_, eu_, ind, NY, NEPS = BBmodel(ss)
 IRFmode = zeros(NY,NEPS,T);
 tic()
 println("IRF mode")
@@ -115,7 +121,7 @@ toc()
 #for pp = 1:ndraws
 #IRF = SharedArray{Float64}(NY,NEPS,T,ndraws);
 shock     = ind["ϵ_P"]
-IRF = SharedArray{Float64}(NY,T,ndraws);
+@everywhere IRF = SharedArray{Float64}(NY,T,ndraws);
 tic()
 println("IRF all")
 @time @sync @parallel for pp = 1:ndraws
