@@ -3,8 +3,7 @@
 As noted in our writeup, we make use of Chris Sims' Gensys
 routine to solve the model. This comes in a `Julia` package
 provided by QuantEcon. The file `BBmodel.jl` contains our
-model written in the form
-$$\Gamma_0 y(t) = \Gamma_1 y(t-1) + C + \Psi(t) + \Pi \eta(t).$$
+model written in the form prescribed by Sims. 
 The file `BBsteadystate.jl` computes the steady state of the
 model. The file `calibration.jl` produces the impulse responses
 at the calibration used by the authors, and makes use of
