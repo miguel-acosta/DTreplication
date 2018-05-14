@@ -11,4 +11,6 @@ PhD macroeconomics course.
 The directory `julia` contains the code used for 
 replicating the model calibration and estimation. The `VAR` directory
 contains the code used to replicate the VARs in the paper. 
-Thomas Drechsel kindly provided us with the data used in the paper. 
+Thomas Drechsel kindly provided us with the data used in the paper. The
+directory `vardecompgraph` contains the code used to produce the
+historical decomposition graph. 

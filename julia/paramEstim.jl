@@ -24,7 +24,7 @@ end
 ##----------------------------------------------------------------------------##
 ## Read in and merge posterior draws
 ##----------------------------------------------------------------------------##
-function getDraws(DIR, nparam; drawsPerFile = 10_000, burnin = 0.25)
+function getDraws(DIR, nparam; drawsPerFile = 9_999, burnin = 0.25, thin = 1)
     nfiles  = length(readdir(DIR))
     nfiles  = in("postAll.csv", readdir(DIR)) ? nfiles -1 : nfiles
     
@@ -32,9 +32,9 @@ function getDraws(DIR, nparam; drawsPerFile = 10_000, burnin = 0.25)
     draws = SharedArray{Float64}(nparam,ndraws)
     @time @sync@parallel for pp in 1:nfiles
         tempFile = readcsv(string(DIR, "post", pp, ".csv"))
-        draws[:,((pp-1)*drawsPerFile+1):(pp*drawsPerFile)] = tempFile
+        draws[:,((pp-1)*drawsPerFile+1):(pp*drawsPerFile)] = tempFile[:,1:drawsPerFile]
     end
-    draws = convert(Array,draws[:,Int(ndraws*burnin):ndraws])
+        draws = convert(Array,draws[:,Int(floor(ndraws*burnin)):thin:ndraws])
     return(draws)
 end
 
@@ -85,17 +85,17 @@ priorHigh = repmat([NaN], length(prior))
 
 paperMean = [-0.2212,3.2057,0.8060,0.1278,0.1765,0.8277,0.5887,0.5244,
              0.6440,0.8687,0.9199,0.0295,0.0525,0.0261,0.1876,0.4582,0.0547]
-paperLow  = [-0.1550,2.5050,0.6840,0.0105,0.0876,0.7494,0.2827,0.3199,
+paperLow  = [-0.2876,2.5050,0.6840,0.0105,0.0876,0.7494,0.2827,0.3199,
             0.5075,0.8382,0.8743,0.0231,0.0242,0.0193,0.1659,0.4145,0.0410]
-paperHigh = [-0.2876,3.8984,0.9388,0.2298,0.2652,0.9092,0.8980,0.7299,
+paperHigh = [-0.1550,3.8984,0.9388,0.2298,0.2652,0.9092,0.8980,0.7299,
              0.7832,0.8996,0.9693,0.0360,0.0810,0.0327,0.2089,0.5000,0.0683]
 
 names = ["\$\\xi\$", "\$\\psi\$",
          "\$\\rho_{\\tilde p}^1\$", "\$-\\rho_{\\tilde p}^1\$", "\$\\sigma_{\\tilde p}\$",
-         "\$\\sigma_a\$","\$\\sigma_{\\tilde a}\$","\$\\sigma_g\$",
-         "\$\\sigma_s\$","\$\\sigma_\\nu\$","\$\\sigma_\\mu\$",
          "\$\\rho_a\$","\$\\rho_{\\tilde a}\$","\$\\rho_g\$",
-         "\$\\rho_s\$","\$\\rho_\\nu\$","\$\\rho_\\mu\$"]
+         "\$\\rho_s\$","\$\\rho_\\nu\$","\$\\rho_\\mu\$",
+         "\$\\sigma_a\$","\$\\sigma_{\\tilde a}\$","\$\\sigma_g\$",
+         "\$\\sigma_s\$","\$\\sigma_\\nu\$","\$\\sigma_\\mu\$"]
     
 
 K          = length(paperMean)
@@ -109,5 +109,12 @@ modeFlat,  meanFlat, lowFlat, highFlat = getStats(drawsFlat)
 
 writeParamTable("params",names,
                 [prior paperMean      meanShort meanFull meanFlat ],
+                [priorLow paperLow    lowShort  lowFull  lowFlat  ],
+                [priorHigh paperHigh  highShort highFull highFlat ])
+
+
+
+writeParamTable("params_modes",names,
+                [prior paperMean      modeShort modeFull modeFlat ],
                 [priorLow paperLow    lowShort  lowFull  lowFlat  ],
                 [priorHigh paperHigh  highShort highFull highFlat ])
